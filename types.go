@@ -17,15 +17,21 @@ type Message interface {
 
 type Response interface {
 	Message
+
+	Error() error
 }
 
 type Event interface {
 	Message
+
+	UID() string
+	CallID() string
 }
 
 type ConnectOptions struct {
-	Context context.Context
-	Timeout time.Duration
+	Context      context.Context
+	Timeout      time.Duration
+	OnDisconnect func(string)
 }
 
 type Connection interface {

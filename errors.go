@@ -23,3 +23,15 @@ type SyntaxError struct {
 func (e *SyntaxError) Error() string {
 	return e.m
 }
+
+func NewCommandError(m string) error {
+	return &CommandError{m: m}
+}
+
+type CommandError struct {
+	m string
+}
+
+func (e *CommandError) Error() string {
+	return e.m
+}

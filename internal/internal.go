@@ -12,7 +12,10 @@ func Loop(con fsgo.Connection) {
 		return
 	}
 
-	panic(conn.Auth("Simplefs!!"))
+	err := conn.Auth("Simplefs!!")
+	if err != nil {
+		panic(err)
+	}
 }
 
 type RawCommand = rawCommand

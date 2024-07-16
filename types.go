@@ -6,6 +6,8 @@ import (
 )
 
 type Command interface {
+	Bytes() []byte
+	Raw() string
 }
 
 type Message interface {
@@ -14,6 +16,10 @@ type Message interface {
 }
 
 type Response interface {
+	Message
+}
+
+type Event interface {
 	Message
 }
 

@@ -12,5 +12,11 @@ func Loop(con fsgo.Connection) {
 		return
 	}
 
-	panic(conn.Auth("password"))
+	panic(conn.Auth("Simplefs!!"))
+}
+
+type RawCommand = rawCommand
+
+func NewRawCommand(raw string) *RawCommand {
+	return newRawCommand(raw)
 }

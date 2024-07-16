@@ -1,14 +1,14 @@
 package fsgo
 
-type MessageType string
+type ChannelType string
 
 const (
-	TypEventPlain   MessageType = "text/event-plain"
-	TypEventJson    MessageType = "text/event-json"
-	TypApiResponse  MessageType = "api/response"
-	TypCommandReply MessageType = "command/reply"
-	TypDisconnect   MessageType = "text/disconnect-notice"
-	TypeAuthRequest MessageType = "auth/request"
+	TypEventPlain   ChannelType = "text/event-plain"
+	TypEventJson    ChannelType = "text/event-json"
+	TypApiResponse  ChannelType = "api/response"
+	TypCommandReply ChannelType = "command/reply"
+	TypDisconnect   ChannelType = "text/disconnect-notice"
+	TypAuthRequest  ChannelType = "auth/request"
 )
 
 const (

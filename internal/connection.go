@@ -3,6 +3,7 @@ package internal
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/luongdev/fsgo"
 	"net"
@@ -20,9 +21,10 @@ type connection struct {
 	mu        sync.Mutex
 	resMu     sync.RWMutex
 
-	errChan  chan error
-	exitChan chan bool
-	authChan chan fsgo.Response
+	resChans   map[fsgo.ChannelType]chan fsgo.Response
+	eventChans map[fsgo.ChannelType]chan fsgo.Event
+	exitChan   chan bool
+	errChan    chan error
 }
 
 func (c *connection) Send(cmd fsgo.Command) (fsgo.Response, error) {
@@ -30,7 +32,44 @@ func (c *connection) Send(cmd fsgo.Command) (fsgo.Response, error) {
 }
 
 func (c *connection) SendCtx(ctx context.Context, cmd fsgo.Command) (fsgo.Response, error) {
-	return nil, nil
+	if cmd == nil {
+		return nil, fsgo.NewSyntaxError("command is nil")
+	}
+	var b []byte
+	if raw, ok := cmd.(*rawCommand); ok {
+		b = raw.Bytes()
+	} else {
+		b = []byte(fmt.Sprintf("%v%v%v", cmd.Raw(), fsgo.EOL, fsgo.EOL))
+	}
+
+	c.mu.Lock()
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = c.conn.SetWriteDeadline(deadline)
+	}
+
+	_, err := c.conn.Write(b)
+	c.mu.Unlock()
+
+	if err != nil {
+		return nil, err
+	}
+
+	c.resMu.RLock()
+	defer c.resMu.RUnlock()
+	select {
+	case res := <-c.resChans[fsgo.TypCommandReply]:
+		if res == nil {
+			return nil, errors.New("connection closed")
+		}
+		return res, nil
+	case res := <-c.resChans[fsgo.TypApiResponse]:
+		if res == nil {
+			return nil, errors.New("connection closed")
+		}
+		return res, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func (c *connection) recvLoop() error {
@@ -53,7 +92,16 @@ func (c *connection) Close() error {
 }
 
 func (c *connection) Auth(pass string) error {
-	<-c.authChan
+	<-c.resChans[fsgo.TypAuthRequest]
+
+	res, err := c.SendCtx(c.ctx, newAuthCommand(pass))
+	if err != nil {
+		return err
+	}
+
+	if res == nil {
+		return errors.New("connection closed")
+	}
 
 	return fmt.Errorf("not implemented")
 }
@@ -69,23 +117,26 @@ func (c *connection) read(r *bufio.Reader) error {
 		return fsgo.NewSyntaxError("content-type missing")
 	}
 
-	ctx, cancel := context.WithTimeout(c.ctx, time.Second*5)
-	defer cancel()
+	chann, ok := c.resChans[fsgo.ChannelType(t)]
+	if !ok {
+		//TODO: log error
+	} else {
+		ctx, cancel := context.WithTimeout(c.ctx, time.Second*5)
+		defer cancel()
 
-	select {
-	case <-ctx.Done():
-		//TODO: handle when message handle timeout
-	case <-c.ctx.Done():
-		if c.ctx.Err() != nil {
-			return c.ctx.Err()
-		}
-		return nil
-	default:
-		c.resMu.RLock()
-		defer c.resMu.RUnlock()
-		switch fsgo.MessageType(t) {
-		case fsgo.TypeAuthRequest:
-			c.authChan <- msg
+		select {
+		case <-ctx.Done():
+			//TODO: handle when message handle timeout
+		case <-c.ctx.Done():
+			if c.ctx.Err() != nil {
+				return c.ctx.Err()
+			}
+			return nil
+		default:
+			c.resMu.RLock()
+			defer c.resMu.RUnlock()
+
+			chann <- msg
 		}
 	}
 
@@ -114,7 +165,15 @@ func newConnection(addr string, opts *fsgo.ConnectOptions) (*connection, error) 
 		conn:     netConn,
 		exitChan: make(chan bool),
 		errChan:  make(chan error),
-		authChan: make(chan fsgo.Response),
+		resChans: map[fsgo.ChannelType]chan fsgo.Response{
+			fsgo.TypCommandReply: make(chan fsgo.Response),
+			fsgo.TypApiResponse:  make(chan fsgo.Response),
+			fsgo.TypAuthRequest:  make(chan fsgo.Response, 1),
+		},
+		eventChans: map[fsgo.ChannelType]chan fsgo.Event{
+			fsgo.TypEventPlain: make(chan fsgo.Event),
+			fsgo.TypEventJson:  make(chan fsgo.Event),
+		},
 	}
 	c.ctx, c.ctxCancel = context.WithCancel(opts.Context)
 	go func() {

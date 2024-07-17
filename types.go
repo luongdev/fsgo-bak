@@ -10,6 +10,12 @@ type Command interface {
 	Raw() string
 }
 
+type App interface {
+}
+
+type Api interface {
+}
+
 type Message interface {
 	Header(header string) (string, bool)
 	Variable(variable string) (string, bool)
@@ -41,6 +47,8 @@ type Connection interface {
 }
 
 type Client interface {
+	Exec(...App) (Response, error)
+	Api(...Api) (Response, error)
 }
 
 type Server interface {

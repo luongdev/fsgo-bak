@@ -32,7 +32,7 @@ type connection struct {
 }
 
 func (c *connection) Send(cmd fsgo.Command) (fsgo.Response, error) {
-	return nil, nil
+	return c.SendCtx(c.ctx, cmd)
 }
 
 func (c *connection) SendCtx(ctx context.Context, cmd fsgo.Command) (fsgo.Response, error) {

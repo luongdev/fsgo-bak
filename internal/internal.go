@@ -1,6 +1,9 @@
 package internal
 
-import "github.com/luongdev/fsgo"
+import (
+	"github.com/luongdev/fsgo"
+	"github.com/luongdev/fsgo/internal/command"
+)
 
 func NewConnection(addr string, opts *fsgo.ConnectOptions) (fsgo.Connection, error) {
 	return newConnection(addr, opts)
@@ -18,8 +21,8 @@ func Loop(con fsgo.Connection) {
 	}
 }
 
-type RawCommand = rawCommand
+type RawCommand = command.RawCommand
 
 func NewRawCommand(raw string) *RawCommand {
-	return newRawCommand(raw)
+	return command.NewRawCommand(raw)
 }
